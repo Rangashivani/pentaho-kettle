@@ -13,6 +13,7 @@
 
 package org.pentaho.di.trans.steps.transexecutor;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -131,7 +132,12 @@ public class TransExecutorHelper extends BaseStepHelper {
   private JSONObject getReferencePath( TransMeta transMeta, TransExecutorMeta transExecutorMeta ) {
     JSONObject response = new JSONObject();
     response.put( REFERENCE_PATH, transMeta.environmentSubstitute( transExecutorMeta.getDirectoryPath() + SEPARATOR + transExecutorMeta.getTransName() ) );
-    response.put( IS_TRANS_REFERENCE, true );
+    try {
+      loadExecutorTransMeta( transMeta, transExecutorMeta );
+      response.put( IS_VALID_REFERENCE, true );
+    } catch ( KettleException kettleException ) {
+      response.put( IS_VALID_REFERENCE, false );
+    }
     return response;
   }
 

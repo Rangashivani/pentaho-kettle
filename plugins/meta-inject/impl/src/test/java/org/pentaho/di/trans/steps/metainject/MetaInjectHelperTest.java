@@ -1,0 +1,93 @@
+/*! ******************************************************************************
+ *
+ * Pentaho
+ *
+ * Copyright (C) 2025 by Hitachi Vantara, LLC : http://www.pentaho.com
+ *
+ * Use of this software is governed by the Business Source License included
+ * in the LICENSE.TXT file.
+ *
+ *
+ ******************************************************************************/
+
+package org.pentaho.di.trans.steps.metainject;
+
+import org.json.simple.JSONObject;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.MockedStatic;
+import org.pentaho.di.core.ObjectLocationSpecificationMethod;
+import org.pentaho.di.core.bowl.Bowl;
+import org.pentaho.di.core.exception.KettleException;
+import org.pentaho.di.repository.Repository;
+import org.pentaho.di.trans.TransMeta;
+import org.pentaho.metastore.api.IMetaStore;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+import static org.pentaho.di.trans.step.BaseStepHelper.IS_VALID_REFERENCE;
+import static org.pentaho.di.trans.step.BaseStepHelper.REFERENCE_PATH;
+import static org.pentaho.di.trans.step.StepHelperInterface.ACTION_STATUS;
+import static org.pentaho.di.trans.step.StepHelperInterface.SUCCESS_RESPONSE;
+
+public class MetaInjectHelperTest {
+
+  MetaInjectMeta metaInjectMeta;
+  MetaInjectHelper metaInjectHelper;
+  TransMeta transMeta;
+  Repository repository;
+  Bowl defaultBowl;
+  IMetaStore metaStore;
+
+  @Before
+  public void setUp() {
+    transMeta = mock( TransMeta.class );
+    metaInjectMeta = mock( MetaInjectMeta.class );
+    repository = mock( Repository.class );
+    defaultBowl = mock( Bowl.class );
+    metaStore = mock( IMetaStore.class );
+    metaInjectHelper = new MetaInjectHelper( metaInjectMeta );
+
+    when( transMeta.getRepository() ).thenReturn( repository );
+    when( transMeta.getBowl() ).thenReturn( defaultBowl );
+    when( transMeta.getMetaStore() ).thenReturn( metaStore );
+    when( transMeta.environmentSubstitute( anyString() ) ).thenAnswer( invocation -> invocation.getArgument( 0 ) );
+    when( metaInjectMeta.getFileName() ).thenReturn( "/path/transFile.ktr" );
+    when( metaInjectMeta.getSpecificationMethod() ).thenReturn( ObjectLocationSpecificationMethod.FILENAME );
+  }
+
+  @Test
+  public void testReferencePath() {
+    try ( MockedStatic<MetaInjectMeta> mappingMetaMockedStatic = mockStatic( MetaInjectMeta.class ) ) {
+      mappingMetaMockedStatic.when( () -> MetaInjectMeta.loadTransformationMeta( transMeta.getBowl(), metaInjectMeta, transMeta.getRepository(),
+          null, transMeta ) ).thenReturn( mock( TransMeta.class ) );
+      when( metaInjectMeta.getFileName() ).thenReturn( "/path/transFile.ktr" );
+      when( transMeta.environmentSubstitute( anyString() ) ).thenAnswer( invocation -> invocation.getArgument( 0 ) );
+      JSONObject response = metaInjectHelper.stepAction( REFERENCE_PATH, transMeta, null );
+
+      assertEquals( SUCCESS_RESPONSE, response.get( ACTION_STATUS ) );
+      assertNotNull( response );
+      assertNotNull( response.get( REFERENCE_PATH ) );
+      assertEquals( "/path/transFile.ktr", response.get( REFERENCE_PATH ) );
+      assertEquals( true, response.get( IS_VALID_REFERENCE ) );
+    }
+  }
+
+  @Test
+  public void testReferencePath_throwsException() {
+    try ( MockedStatic<MetaInjectMeta> mappingMetaMockedStatic = mockStatic( MetaInjectMeta.class ) ) {
+      mappingMetaMockedStatic.when( () -> MetaInjectMeta.loadTransformationMeta( transMeta.getBowl(), metaInjectMeta, transMeta.getRepository(),
+          null, transMeta ) ).thenThrow( new KettleException( "invalid_trans") );
+      JSONObject response = metaInjectHelper.stepAction( REFERENCE_PATH, transMeta, null );
+
+      assertEquals( SUCCESS_RESPONSE, response.get( ACTION_STATUS ) );
+      assertNotNull( response );
+      assertNotNull( response.get( IS_VALID_REFERENCE ) );
+      assertEquals( false, response.get( IS_VALID_REFERENCE ) );
+    }
+  }
+}
